@@ -62,14 +62,14 @@ const Homepage = () => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-5 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full shadow-lg text-base"
+              className="px-5 py-2 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600 transition text-base"
               onClick={handleStartSharing}
             >
               Start Sharing
             </motion.button>
             <Link
               to="/community"
-              className="px-5 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full shadow-lg text-base"
+              className="px-5 py-2 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600 transition text-base"
             >
               Community
             </Link>

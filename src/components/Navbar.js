@@ -1,14 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 const Navbar = ({ notifications }) => {
   const navigate = useNavigate();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const dropdownRef = useRef(null); // Ref for the dropdown
 
   const handleLogout = () => {
     console.log('Logging out...');
     navigate('/');
   };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsNotificationsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <nav className="bg-gray-800 text-white p-4 shadow-md">
@@ -25,7 +38,7 @@ const Navbar = ({ notifications }) => {
           <Link to="/create" className="hover:text-orange-500">Create Recipe</Link>
 
           {/* Notifications Dropdown */}
-          <div className="relative">
+          <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
               className="flex items-center space-x-1 hover:text-orange-500 focus:outline-none"

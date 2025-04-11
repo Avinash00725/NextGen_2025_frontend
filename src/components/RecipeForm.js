@@ -6,17 +6,32 @@ const RecipeForm = ({ onClose, onAddRecipe }) => {
     title: '',
     ingredients: '',
     procedure: '',
-    imageUrl: '',
-    cookingTime: '',
+    image: null, // Changed to file input
+    videoUrl: '', // URL input
+    cookingTime: '', // Renamed to match UserDashboard
   });
+  const [error, setError] = useState(''); // State for error message
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value, files } = e.target;
+    setFormData((prev) => {
+      if (name === 'image') {
+        return { ...prev, [name]: files[0] }; // Handle file input
+      }
+      return { ...prev, [name]: value }; // Handle text inputs
+    });
+    // Clear error when user starts providing media
+    if (name === 'image' || name === 'videoUrl') setError('');
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    // Validate that at least one media field is provided
+    if (!formData.image && !formData.videoUrl.trim()) {
+      setError('Please provide at least an image or video URL.');
+      return;
+    }
+    setError(''); // Clear error if validation passes
     onAddRecipe({
       ...formData,
       id: Date.now(),
@@ -39,6 +54,7 @@ const RecipeForm = ({ onClose, onAddRecipe }) => {
         className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md"
       >
         <h2 className="text-2xl font-semibold mb-4">Add New Recipe</h2>
+        {error && <p className="text-red-500 mb-4">{error}</p>} {/* Display error */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="text"
@@ -66,13 +82,19 @@ const RecipeForm = ({ onClose, onAddRecipe }) => {
             required
           />
           <input
-            type="url"
-            name="imageUrl"
-            value={formData.imageUrl}
+            type="file"
+            name="image"
+            accept="image/*"
             onChange={handleInputChange}
             className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white"
-            placeholder="Image URL (e.g., https://example.com/image.jpg)"
-            required
+          />
+          <input
+            type="url"
+            name="videoUrl"
+            value={formData.videoUrl}
+            onChange={handleInputChange}
+            className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white"
+            placeholder="Video URL (e.g., https://youtube.com/watch?v=videoId)"
           />
           <input
             type="text"

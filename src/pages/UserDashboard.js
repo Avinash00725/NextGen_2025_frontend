@@ -7,7 +7,7 @@ import ProfileCard from '../components/ProfileCard';
 import RecipeList from '../components/RecipeList';
 import RecipeForm from '../components/RecipeForm';
 import toast from 'react-hot-toast';
-import { getUserProfile, updateUserProfile, getUserRecipes, createRecipe, deleteRecipe, getNotifications } from '../api';
+import { getUserProfile, updateUserProfile, getUserRecipes, createRecipe, getNotifications } from '../api';
 
 const socket = io('https://nextgen-2025-backend.onrender.com');
 
@@ -18,7 +18,6 @@ const UserDashboard = () => {
   const [notifications, setNotifications] = useState([]);
   const [showRecipeForm, setShowRecipeForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loadingDelete, setLoadingDelete] = useState(null);
 
   useEffect(() => {
     getUserProfile()
@@ -29,7 +28,13 @@ const UserDashboard = () => {
       });
 
     getUserRecipes()
-      .then((res) => setRecipes(res.data))
+      .then((res) => {
+        console.log('Fetched recipes (full response):', JSON.stringify(res.data, null, 2)); // Pretty print full response
+        res.data.forEach((recipe, index) => {
+          console.log(`Recipe ${index + 1} - Image field:`, recipe.image, 'Type:', typeof recipe.image);
+        });
+        setRecipes(res.data);
+      })
       .catch((err) => {
         console.error('Error fetching recipes:', err.response?.data?.message || err.message);
         toast.error('Failed to load recipes');
@@ -37,7 +42,7 @@ const UserDashboard = () => {
 
     getNotifications()
       .then((res) => {
-        console.log('Fetched notifications:', res.data); // Debug
+        console.log('Fetched notifications:', res.data);
         setNotifications(res.data);
       })
       .catch((err) => {
@@ -46,7 +51,7 @@ const UserDashboard = () => {
       });
 
     socket.on('newNotification', (notification) => {
-      console.log('New notification received:', notification); // Debug
+      console.log('New notification received:', notification);
       setNotifications((prev) => [notification, ...prev.slice(0, 4)]);
     });
 
@@ -77,11 +82,17 @@ const UserDashboard = () => {
       const formData = new FormData();
       formData.append('title', newRecipe.title);
       formData.append('prepTime', newRecipe.prepTime);
+      if (newRecipe.ingredients) formData.append('ingredients', newRecipe.ingredients);
+      if (newRecipe.procedure) formData.append('procedure', newRecipe.procedure);
       if (newRecipe.image) {
         formData.append('image', newRecipe.image);
+        console.log('Uploading image file:', newRecipe.image.name, 'Size:', newRecipe.image.size, 'Type:', newRecipe.image.type);
       }
+      if (newRecipe.videoUrl) formData.append('videoUrl', newRecipe.videoUrl);
 
+      console.log('FormData entries:', Array.from(formData.entries())); // Log all FormData keys and values
       const res = await createRecipe(formData);
+      console.log('Create recipe response (full):', JSON.stringify(res.data, null, 2)); // Pretty print response
       setRecipes((prev) => [...prev, res.data]);
       setUser((prev) => ({
         ...prev,
@@ -91,7 +102,7 @@ const UserDashboard = () => {
       toast.success('Recipe added successfully!');
     } catch (err) {
       toast.error('Failed to add recipe');
-      console.error('Error adding recipe:', err.response?.data?.message || err.message);
+      console.error('Error adding recipe:', err.response?.data?.message || err.message, err.response?.status);
     }
   }, []);
 
@@ -101,33 +112,6 @@ const UserDashboard = () => {
       window.history.replaceState({}, document.title, location.pathname);
     }
   }, [location, handleAddRecipe]);
-
-  const handleDeleteRecipe = async (recipeId) => {
-    if (window.confirm('Are you sure you want to delete this recipe?')) {
-      console.log('Attempting to delete recipe with ID:', recipeId);
-      console.log('Current token in localStorage:', localStorage.getItem('token'));
-      setLoadingDelete(recipeId);
-      try {
-        const response = await deleteRecipe(recipeId);
-        console.log('Delete response:', response.data);
-        const [recipesRes, userRes] = await Promise.all([
-          getUserRecipes(),
-          getUserProfile(),
-        ]);
-        console.log('Refetched recipes:', recipesRes.data);
-        console.log('Refetched user profile:', userRes.data);
-        setRecipes(recipesRes.data);
-        setUser(userRes.data);
-        toast.success('Recipe deleted successfully!');
-      } catch (err) {
-        const errorMessage = err.response?.data?.message || 'Failed to delete recipe';
-        console.error('Error deleting recipe:', errorMessage, err.response?.status, err.response?.data);
-        toast.error(errorMessage);
-      } finally {
-        setLoadingDelete(null);
-      }
-    }
-  };
 
   const filteredRecipes = recipes.filter((recipe) =>
     recipe.title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -143,7 +127,7 @@ const UserDashboard = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="max-w-[1280px] mx-auto" // Fixed typo: maxcalc to max-w
+          className="max-w-[1280px] mx-auto"
         >
           <ProfileCard user={{ ...user, rank: getUserRank(user.postedRecipes) }} onUpdate={updateUserProfileHandler} />
           <section className="mt-8">
@@ -166,11 +150,7 @@ const UserDashboard = () => {
             {filteredRecipes.length === 0 ? (
               <p className="text-center text-gray-600 dark:text-gray-400">No recipes found. Start adding some!</p>
             ) : (
-              <RecipeList
-                recipes={filteredRecipes}
-                onDelete={handleDeleteRecipe}
-                loadingDelete={loadingDelete}
-              />
+              <RecipeList recipes={filteredRecipes} />
             )}
           </section>
         </motion.div>

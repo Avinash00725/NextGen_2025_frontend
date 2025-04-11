@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import io from 'socket.io-client';
 import CommunityPostCard from '../components/CommunityPostCard';
 import { getPosts, createPost, upvotePost, downvotePost, addComment } from '../api';
@@ -16,6 +17,7 @@ const Community = () => {
     video: null,
     mediaUrl: '',
   });
+  const navigate = useNavigate(); // Initialize navigate
 
   useEffect(() => {
     // Fetch initial posts
@@ -24,16 +26,20 @@ const Community = () => {
         console.log('Fetched posts:', res.data);
         setPosts(res.data);
       })
-      .catch((err) => console.error('Error fetching posts:', err));
+      .catch((err) => {
+        const errorMessage = err.response?.data?.message || 'Error fetching posts';
+        console.error('Error fetching posts:', err);
+        toast.error(errorMessage);
+      });
 
     // Listen for real-time updates
     socket.on('newPost', (post) => {
-      console.log('New post received:', post); // Debug
+      console.log('New post received:', post);
       setPosts((prev) => [post, ...prev]);
     });
 
     socket.on('postUpdated', (updatedPost) => {
-      console.log('Post updated received:', updatedPost); // Debug
+      console.log('Post updated received:', updatedPost);
       setPosts((prev) =>
         prev.map((post) => (post._id === updatedPost._id ? updatedPost : post))
       );
@@ -68,26 +74,65 @@ const Community = () => {
 
   const handleUpvote = async (id) => {
     try {
-      await upvotePost(id);
+      // Optimistically update the vote count
+      setPosts((prev) =>
+        prev.map((post) =>
+          post._id === id ? { ...post, upvotes: (post.upvotes || 0) + 1 } : post
+        )
+      );
+      const res = await upvotePost(id); // Call API
+      console.log('Upvote response:', res.data);
+      // Update with the exact response
+      setPosts((prev) =>
+        prev.map((post) => (post._id === id ? res.data : post))
+      );
+      // toast.success('Upvoted successfully!');
     } catch (err) {
-      toast.error('Failed to upvote');
+      const errorMessage = err.response?.data?.message || 'Failed to upvote';
+      toast.error(errorMessage);
+      console.error('Upvote error:', err);
+      // Revert optimistic update on failure
+      setPosts((prev) =>
+        prev.map((post) =>
+          post._id === id ? { ...post, upvotes: (post.upvotes || 0) - 1 } : post
+        )
+      );
     }
   };
 
   const handleDownvote = async (id) => {
     try {
-      await downvotePost(id);
+      // Optimistically update the vote count
+      setPosts((prev) =>
+        prev.map((post) =>
+          post._id === id ? { ...post, downvotes: (post.downvotes || 0) + 1 } : post
+        )
+      );
+      const res = await downvotePost(id); // Call API
+      console.log('Downvote response:', res.data);
+      // Update with the exact response
+      setPosts((prev) =>
+        prev.map((post) => (post._id === id ? res.data : post))
+      );
+      // toast.success('Downvoted successfully!');
     } catch (err) {
-      toast.error('Failed to downvote');
+      const errorMessage = err.response?.data?.message || 'Failed to downvote';
+      toast.error(errorMessage);
+      console.error('Downvote error:', err);
+      // Revert optimistic update on failure
+      setPosts((prev) =>
+        prev.map((post) =>
+          post._id === id ? { ...post, downvotes: (post.downvotes || 0) - 1 } : post
+        )
+      );
     }
   };
 
   const handleAddComment = async (id, comment) => {
     try {
-      console.log('Adding comment to post:', id, 'with text:', comment); // Debug
-      const res = await addComment(id, { text: comment }); // Get response
-      console.log('Comment add response:', res.data); // Debug response
-      // Optimistically update the state (optional, depends on Socket.IO)
+      console.log('Adding comment to post:', id, 'with text:', comment);
+      const res = await addComment(id, { text: comment });
+      console.log('Comment add response:', res.data);
       setPosts((prev) =>
         prev.map((post) =>
           post._id === id ? { ...post, comments: res.data.comments } : post
@@ -109,16 +154,27 @@ const Community = () => {
       className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white p-6"
     >
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-6">Community</h1>
+        {/* Header with Navigation */}
+        <div className="flex justify-between items-center mb-6 bg-gray-200 dark:bg-gray-800 p-4 rounded-lg shadow-md">
+          <h1 className="text-4xl font-bold">Community</h1>
+          <div className="space-x-4">
+            <button
+              onClick={() => navigate('/')}
+              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+            >
+              Back to Home Page
+            </button>
+            <button
+              onClick={() => setShowPostForm(true)}
+              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+            >
+              Create New Post
+            </button>
+          </div>
+        </div>
         <p className="mb-4 text-gray-600 dark:text-gray-300">
           Share your recipes, give feedback, and connect with others!
         </p>
-        <button
-          onClick={() => setShowPostForm(true)}
-          className="mb-4 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-        >
-          Create New Post
-        </button>
         <div className="space-y-6">
           {posts.map((post) => (
             <CommunityPostCard
